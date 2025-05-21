@@ -4,6 +4,7 @@
 
 #include <stdalign.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 // C_ARRAY_UTIL_ALLOCATION_FAILED is called when allocation fails.
 // Default implementation calls abort().
