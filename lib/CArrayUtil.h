@@ -259,7 +259,7 @@ static inline size_t CARR_ring_buffer_push_back(void* data) {
  */
 #define RING_BUFFER(TYPE) struct { TYPE CARR_elem; }*
 
-inline void* CARR_ring_buffer_init(size_t size, size_t alignment) {
+static void* CARR_ring_buffer_init(size_t size, size_t alignment) {
     void* ptr = NULL;
     if (!CARR_ring_buffer_ensure_can_push((void**)&(ptr), alignment, size, false)) {
         abort();
