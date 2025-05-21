@@ -120,7 +120,7 @@ static inline void CARR_array_push_back(void** handle, size_t size) {
  * Deallocate the vector
  * @param P array
  */
-#define ARRAY_FREE(P) ((void)CARR_array_realloc((void**)&(P), alignof(*(P)), sizeof(*(P)), 0))
+#define ARRAY_FREE(P) ((void)CARR_array_realloc((void**)&(P), CARR_ARRAY_T(P)->element_alignment, sizeof(*(P)), 0))
 
 /**
  * Apply function to the array elements
