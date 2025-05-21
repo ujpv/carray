@@ -25,7 +25,7 @@ static inline bool CARR_handle_alloc(bool CARR_result, bool CARR_force) {
     C_ARRAY_UTIL_ALLOCATION_FAILED();
     return false;
 }
-static inline void consume(const void* value) {}
+// static inline void consume(const void* value) {}
 
 // === Arrays ===
 
@@ -207,137 +207,137 @@ static inline void CARR_array_push_back(void** handle, size_t alignment, size_t 
 
 // === Ring buffers ===
 
-typedef struct {
-    size_t head;
-    size_t tail;
-    size_t capacity;
-} CARR_ring_buffer_t;
+// typedef struct {
+//     size_t head;
+//     size_t tail;
+//     size_t capacity;
+// } CARR_ring_buffer_t;
+//
+// bool CARR_ring_buffer_realloc(void** handle, size_t element_alignment, size_t element_size, size_t new_capacity);
+//
+// #define CARR_RING_BUFFER_T(P) ((CARR_ring_buffer_t*)(P) - 1) // NULL / type unsafe!
+// #define CARR_RING_BUFFER_IS_NULL(P) (&(P)->CARR_elem == NULL) // Guard against wrong pointer types.
+// #define CARR_RING_BUFFER_GUARD(P, ...) (consume(&(P)->CARR_elem), __VA_ARGS__) // Guard against wrong pointer types.
+//
+// static inline size_t CARR_ring_buffer_size(void* data) {
+//     CARR_ring_buffer_t* buffer = CARR_RING_BUFFER_T(data);
+//     return (buffer->capacity + buffer->tail - buffer->head) % buffer->capacity;
+// }
+//
+// static inline bool CARR_ring_buffer_ensure_can_push(void** handle, size_t alignment, size_t size, bool force) {
+//     void* data = *handle;
+//     if (data == NULL || CARR_ring_buffer_size(data) + 1 >= CARR_RING_BUFFER_T(data)->capacity) {
+//         size_t new_capacity = data == NULL ?
+//             ARRAY_DEFAULT_CAPACITY : ARRAY_CAPACITY_GROW(CARR_RING_BUFFER_T(data)->capacity);
+//         return CARR_handle_alloc(CARR_ring_buffer_realloc(handle, alignment, size, new_capacity), force);
+//     }
+//     return true;
+// }
 
-bool CARR_ring_buffer_realloc(void** handle, size_t element_alignment, size_t element_size, size_t new_capacity);
+// static inline size_t CARR_ring_buffer_push_front(void* data) {
+//     if (data == NULL) return 0;
+//     CARR_ring_buffer_t* buffer = CARR_RING_BUFFER_T(data);
+//     return buffer->head = (buffer->head + buffer->capacity - 1) % buffer->capacity;
+// }
 
-#define CARR_RING_BUFFER_T(P) ((CARR_ring_buffer_t*)(P) - 1) // NULL / type unsafe!
-#define CARR_RING_BUFFER_IS_NULL(P) (&(P)->CARR_elem == NULL) // Guard against wrong pointer types.
-#define CARR_RING_BUFFER_GUARD(P, ...) (consume(&(P)->CARR_elem), __VA_ARGS__) // Guard against wrong pointer types.
+// static inline size_t CARR_ring_buffer_push_back(void* data) {
+//     if (data == NULL) return 0;
+//     CARR_ring_buffer_t* buffer = CARR_RING_BUFFER_T(data);
+//     size_t i = buffer->tail;
+//     buffer->tail = (buffer->tail + 1) % buffer->capacity;
+//     return i;
+// }
 
-static inline size_t CARR_ring_buffer_size(void* data) {
-    CARR_ring_buffer_t* buffer = CARR_RING_BUFFER_T(data);
-    return (buffer->capacity + buffer->tail - buffer->head) % buffer->capacity;
-}
+// /**
+//  * Ring buffer declaration, e.g. RING_BUFFER(int) my_ring = NULL;
+//  * @param TYPE type of the ring buffer element.
+//  */
+// #define RING_BUFFER(TYPE) struct { TYPE CARR_elem; }*
 
-static inline bool CARR_ring_buffer_ensure_can_push(void** handle, size_t alignment, size_t size, bool force) {
-    void* data = *handle;
-    if (data == NULL || CARR_ring_buffer_size(data) + 1 >= CARR_RING_BUFFER_T(data)->capacity) {
-        size_t new_capacity = data == NULL ?
-            ARRAY_DEFAULT_CAPACITY : ARRAY_CAPACITY_GROW(CARR_RING_BUFFER_T(data)->capacity);
-        return CARR_handle_alloc(CARR_ring_buffer_realloc(handle, alignment, size, new_capacity), force);
-    }
-    return true;
-}
+// /**
+//  * @param P ring buffer
+//  * @return size of the ring buffer
+//  */
+// #define RING_BUFFER_SIZE(P) (CARR_RING_BUFFER_IS_NULL(P) ? (size_t) 0 : CARR_ring_buffer_size(P))
 
-static inline size_t CARR_ring_buffer_push_front(void* data) {
-    if (data == NULL) return 0;
-    CARR_ring_buffer_t* buffer = CARR_RING_BUFFER_T(data);
-    return buffer->head = (buffer->head + buffer->capacity - 1) % buffer->capacity;
-}
+// /**
+//  * @param P ring buffer
+//  * @return capacity of the ring buffer
+//  */
+// #define RING_BUFFER_CAPACITY(P) (CARR_RING_BUFFER_IS_NULL(P) ? (size_t) 0 : CARR_RING_BUFFER_T(P)->capacity)
 
-static inline size_t CARR_ring_buffer_push_back(void* data) {
-    if (data == NULL) return 0;
-    CARR_ring_buffer_t* buffer = CARR_RING_BUFFER_T(data);
-    size_t i = buffer->tail;
-    buffer->tail = (buffer->tail + 1) % buffer->capacity;
-    return i;
-}
+// /**
+//  * Ensure enough capacity to push an element into ring buffer. Implicitly initializes when buffer is NULL.
+//  * On allocation failure, buffer is left unchanged.
+//  * @param P ring buffer
+//  * @return true if the operation succeeded
+//  */
+// #define RING_BUFFER_TRY_ENSURE_CAN_PUSH(P) CARR_RING_BUFFER_GUARD((P), \
+//     CARR_ring_buffer_ensure_can_push((void**)&(P), alignof(*(P)), sizeof(*(P)), false))
 
-/**
- * Ring buffer declaration, e.g. RING_BUFFER(int) my_ring = NULL;
- * @param TYPE type of the ring buffer element.
- */
-#define RING_BUFFER(TYPE) struct { TYPE CARR_elem; }*
+// /**
+//  * Ensure enough capacity to push an element into ring buffer. Implicitly initializes when buffer is NULL.
+//  * On allocation failure, C_ARRAY_UTIL_ALLOCATION_FAILED is called.
+//  * @param P ring buffer
+//  */
+// #define RING_BUFFER_ENSURE_CAN_PUSH(P) CARR_RING_BUFFER_GUARD((P), \
+//     (void)CARR_ring_buffer_ensure_can_push((void**)&(P), alignof(*(P)), sizeof(*(P)), true))
 
-/**
- * @param P ring buffer
- * @return size of the ring buffer
- */
-#define RING_BUFFER_SIZE(P) (CARR_RING_BUFFER_IS_NULL(P) ? (size_t) 0 : CARR_ring_buffer_size(P))
+// /**
+//  * Add element to the beginning of the ring buffer. Implicitly initializes when buffer is NULL.
+//  * On allocation failure, C_ARRAY_UTIL_ALLOCATION_FAILED is called.
+//  * @param P ring buffer
+//  * @return dereferenced pointer to the inserted element
+//  */
+// #define RING_BUFFER_PUSH_FRONT(P) \
+//     ((RING_BUFFER_ENSURE_CAN_PUSH(P), (P) + CARR_ring_buffer_push_front(P))->CARR_elem)
 
-/**
- * @param P ring buffer
- * @return capacity of the ring buffer
- */
-#define RING_BUFFER_CAPACITY(P) (CARR_RING_BUFFER_IS_NULL(P) ? (size_t) 0 : CARR_RING_BUFFER_T(P)->capacity)
+// /**
+//  * Add element to the end of the ring buffer. Implicitly initializes when buffer is NULL.
+//  * On allocation failure, C_ARRAY_UTIL_ALLOCATION_FAILED is called.
+//  * @param P ring buffer
+//  * @return dereferenced pointer to the inserted element
+//  */
+// #define RING_BUFFER_PUSH_BACK(P) \
+//     ((RING_BUFFER_ENSURE_CAN_PUSH(P), (P) + CARR_ring_buffer_push_back(P))->CARR_elem)
 
-/**
- * Ensure enough capacity to push an element into ring buffer. Implicitly initializes when buffer is NULL.
- * On allocation failure, buffer is left unchanged.
- * @param P ring buffer
- * @return true if the operation succeeded
- */
-#define RING_BUFFER_TRY_ENSURE_CAN_PUSH(P) CARR_RING_BUFFER_GUARD((P), \
-    CARR_ring_buffer_ensure_can_push((void**)&(P), alignof(*(P)), sizeof(*(P)), false))
+// /**
+//  * Get pointer to the first element of the ring buffer.
+//  * @param P ring buffer
+//  * @return pointer to the first element of the ring buffer, or NULL
+//  */
+// #define RING_BUFFER_FRONT(P) (CARR_RING_BUFFER_IS_NULL(P) || \
+//     CARR_RING_BUFFER_T(P)->head == CARR_RING_BUFFER_T(P)->tail ? NULL : &(P)[CARR_RING_BUFFER_T(P)->head].CARR_elem)
 
-/**
- * Ensure enough capacity to push an element into ring buffer. Implicitly initializes when buffer is NULL.
- * On allocation failure, C_ARRAY_UTIL_ALLOCATION_FAILED is called.
- * @param P ring buffer
- */
-#define RING_BUFFER_ENSURE_CAN_PUSH(P) CARR_RING_BUFFER_GUARD((P), \
-    (void)CARR_ring_buffer_ensure_can_push((void**)&(P), alignof(*(P)), sizeof(*(P)), true))
+// /**
+//  * Get pointer to the last element of the ring buffer.
+//  * @param P ring buffer
+//  * @return pointer to the last element of the ring buffer, or NULL
+//  */
+// #define RING_BUFFER_BACK(P) (CARR_RING_BUFFER_IS_NULL(P) ||             \
+//     CARR_RING_BUFFER_T(P)->head == CARR_RING_BUFFER_T(P)->tail ? NULL : \
+//     &(P)[(CARR_RING_BUFFER_T(P)->tail+CARR_RING_BUFFER_T(P)->capacity-1) % CARR_RING_BUFFER_T(P)->capacity].CARR_elem)
 
-/**
- * Add element to the beginning of the ring buffer. Implicitly initializes when buffer is NULL.
- * On allocation failure, C_ARRAY_UTIL_ALLOCATION_FAILED is called.
- * @param P ring buffer
- * @return dereferenced pointer to the inserted element
- */
-#define RING_BUFFER_PUSH_FRONT(P) \
-    ((RING_BUFFER_ENSURE_CAN_PUSH(P), (P) + CARR_ring_buffer_push_front(P))->CARR_elem)
+// /**
+//  * Move beginning of the ring buffer forward (remove first element).
+//  * @param P ring buffer
+//  */
+// #define RING_BUFFER_POP_FRONT(P) CARR_RING_BUFFER_GUARD((P), (void)(CARR_RING_BUFFER_T(P)->head = \
+//     (CARR_RING_BUFFER_T(P)->head + 1) % CARR_RING_BUFFER_T(P)->capacity))
 
-/**
- * Add element to the end of the ring buffer. Implicitly initializes when buffer is NULL.
- * On allocation failure, C_ARRAY_UTIL_ALLOCATION_FAILED is called.
- * @param P ring buffer
- * @return dereferenced pointer to the inserted element
- */
-#define RING_BUFFER_PUSH_BACK(P) \
-    ((RING_BUFFER_ENSURE_CAN_PUSH(P), (P) + CARR_ring_buffer_push_back(P))->CARR_elem)
+// /**
+//  * Move end of the ring buffer backward (remove last element).
+//  * @param P ring buffer
+//  */
+// #define RING_BUFFER_POP_BACK(P) CARR_RING_BUFFER_GUARD((P), (void)(CARR_RING_BUFFER_T(P)->tail = \
+//     (CARR_RING_BUFFER_T(P)->tail + CARR_RING_BUFFER_T(P)->capacity - 1) % CARR_RING_BUFFER_T(P)->capacity))
 
-/**
- * Get pointer to the first element of the ring buffer.
- * @param P ring buffer
- * @return pointer to the first element of the ring buffer, or NULL
- */
-#define RING_BUFFER_FRONT(P) (CARR_RING_BUFFER_IS_NULL(P) || \
-    CARR_RING_BUFFER_T(P)->head == CARR_RING_BUFFER_T(P)->tail ? NULL : &(P)[CARR_RING_BUFFER_T(P)->head].CARR_elem)
-
-/**
- * Get pointer to the last element of the ring buffer.
- * @param P ring buffer
- * @return pointer to the last element of the ring buffer, or NULL
- */
-#define RING_BUFFER_BACK(P) (CARR_RING_BUFFER_IS_NULL(P) ||             \
-    CARR_RING_BUFFER_T(P)->head == CARR_RING_BUFFER_T(P)->tail ? NULL : \
-    &(P)[(CARR_RING_BUFFER_T(P)->tail+CARR_RING_BUFFER_T(P)->capacity-1) % CARR_RING_BUFFER_T(P)->capacity].CARR_elem)
-
-/**
- * Move beginning of the ring buffer forward (remove first element).
- * @param P ring buffer
- */
-#define RING_BUFFER_POP_FRONT(P) CARR_RING_BUFFER_GUARD((P), (void)(CARR_RING_BUFFER_T(P)->head = \
-    (CARR_RING_BUFFER_T(P)->head + 1) % CARR_RING_BUFFER_T(P)->capacity))
-
-/**
- * Move end of the ring buffer backward (remove last element).
- * @param P ring buffer
- */
-#define RING_BUFFER_POP_BACK(P) CARR_RING_BUFFER_GUARD((P), (void)(CARR_RING_BUFFER_T(P)->tail = \
-    (CARR_RING_BUFFER_T(P)->tail + CARR_RING_BUFFER_T(P)->capacity - 1) % CARR_RING_BUFFER_T(P)->capacity))
-
-/**
- * Deallocate the ring buffer
- * @param P ring buffer
- */
-#define RING_BUFFER_FREE(P) CARR_RING_BUFFER_GUARD((P), \
-    (void)CARR_ring_buffer_realloc((void**)&(P), alignof(*(P)), sizeof(*(P)), 0))
+// /**
+//  * Deallocate the ring buffer
+//  * @param P ring buffer
+//  */
+// #define RING_BUFFER_FREE(P) CARR_RING_BUFFER_GUARD((P), \
+//     (void)CARR_ring_buffer_realloc((void**)&(P), alignof(*(P)), sizeof(*(P)), 0))
 
 // === Maps ===
 

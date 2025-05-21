@@ -73,39 +73,39 @@ bool CARR_array_realloc(void** handle, size_t element_alignment, size_t element_
 
 // === Ring buffers ===
 
-bool CARR_ring_buffer_realloc(void** handle, size_t element_alignment, size_t element_size, size_t new_capacity) {
-    void* old_data = *handle;
-    if (old_data != NULL) {
-        CARR_ring_buffer_t* old_buf = CARR_RING_BUFFER_T(old_data);
-        if (old_buf->capacity == new_capacity) return true;
-        // Shrinking is not supported.
-        if ((old_buf->capacity + old_buf->tail - old_buf->head) % old_buf->capacity > new_capacity) return false;
-    }
-    CARR_context_t context =
-        CARR_context_init(alignof(CARR_ring_buffer_t), sizeof(CARR_ring_buffer_t), element_alignment);
-    if (new_capacity != 0) {
-        if (!CARR_context_alloc(&context, element_size * new_capacity)) return false;
-        CARR_ring_buffer_t* new_buf = CARR_RING_BUFFER_T(context.new_data);
-        new_buf->capacity = new_capacity;
-        new_buf->head = new_buf->tail = 0;
-        if (old_data != NULL) {
-            CARR_ring_buffer_t* old_buf = CARR_RING_BUFFER_T(old_data);
-            if (old_buf->tail > old_buf->head) {
-                new_buf->tail = old_buf->tail - old_buf->head;
-                memcpy(context.new_data, (char*)old_data + old_buf->head*element_size, new_buf->tail*element_size);
-            } else if (old_buf->tail < old_buf->head) {
-                new_buf->tail = old_buf->capacity + old_buf->tail - old_buf->head;
-                memcpy(context.new_data, (char*)old_data + old_buf->head*element_size,
-                    (old_buf->capacity-old_buf->head)*element_size);
-                memcpy((char*)context.new_data + (new_buf->tail-old_buf->tail)*element_size, old_data,
-                    old_buf->tail*element_size);
-            }
-        }
-    }
-    CARR_context_free(&context, old_data);
-    *handle = context.new_data;
-    return true;
-}
+// bool CARR_ring_buffer_realloc(void** handle, size_t element_alignment, size_t element_size, size_t new_capacity) {
+//     void* old_data = *handle;
+//     if (old_data != NULL) {
+//         CARR_ring_buffer_t* old_buf = CARR_RING_BUFFER_T(old_data);
+//         if (old_buf->capacity == new_capacity) return true;
+//         // Shrinking is not supported.
+//         if ((old_buf->capacity + old_buf->tail - old_buf->head) % old_buf->capacity > new_capacity) return false;
+//     }
+//     CARR_context_t context =
+//         CARR_context_init(alignof(CARR_ring_buffer_t), sizeof(CARR_ring_buffer_t), element_alignment);
+//     if (new_capacity != 0) {
+//         if (!CARR_context_alloc(&context, element_size * new_capacity)) return false;
+//         CARR_ring_buffer_t* new_buf = CARR_RING_BUFFER_T(context.new_data);
+//         new_buf->capacity = new_capacity;
+//         new_buf->head = new_buf->tail = 0;
+//         if (old_data != NULL) {
+//             CARR_ring_buffer_t* old_buf = CARR_RING_BUFFER_T(old_data);
+//             if (old_buf->tail > old_buf->head) {
+//                 new_buf->tail = old_buf->tail - old_buf->head;
+//                 memcpy(context.new_data, (char*)old_data + old_buf->head*element_size, new_buf->tail*element_size);
+//             } else if (old_buf->tail < old_buf->head) {
+//                 new_buf->tail = old_buf->capacity + old_buf->tail - old_buf->head;
+//                 memcpy(context.new_data, (char*)old_data + old_buf->head*element_size,
+//                     (old_buf->capacity-old_buf->head)*element_size);
+//                 memcpy((char*)context.new_data + (new_buf->tail-old_buf->tail)*element_size, old_data,
+//                     old_buf->tail*element_size);
+//             }
+//         }
+//     }
+//     CARR_context_free(&context, old_data);
+//     *handle = context.new_data;
+//     return true;
+// }
 
 // === Maps ===
 
