@@ -37,7 +37,9 @@ static CARR_context_t CARR_context_init(size_t header_alignment, size_t header_s
 }
 
 static bool CARR_context_alloc(CARR_context_t* context, size_t data_size) {
-    void* block = ALIGNED_ALLOC(context->total_alignment, context->aligned_header_size + data_size);
+    size_t total_size = context->aligned_header_size + data_size;
+    size_t padding = (context->total_alignment - (total_size % context->total_alignment)) % context->total_alignment;
+    void* block = ALIGNED_ALLOC(context->total_alignment, total_size + padding);
     if (block == NULL) return false;
     context->new_data = (char*)block + context->aligned_header_size;
     return true;
@@ -59,6 +61,7 @@ bool CARR_array_realloc(void** handle, size_t element_alignment, size_t element_
     if (new_capacity != 0) {
         if (!CARR_context_alloc(&context, element_size * new_capacity)) return false;
         CARR_ARRAY_T(context.new_data)->capacity = new_capacity;
+        CARR_ARRAY_T(context.new_data)->element_alignment = element_alignment;
         if (old_data == NULL) {
             CARR_ARRAY_T(context.new_data)->size = 0;
         } else {

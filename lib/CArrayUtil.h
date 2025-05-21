@@ -39,6 +39,7 @@ static inline bool CARR_handle_alloc(bool CARR_result, bool CARR_force) {
 typedef struct {
     size_t size;
     size_t capacity;
+    size_t element_alignment;
 } CARR_array_t;
 
 bool CARR_array_realloc(void** handle, size_t element_alignment, size_t element_size, size_t new_capacity);
@@ -54,23 +55,27 @@ static inline void* CARR_array_alloc(size_t element_alignment, size_t element_si
 static inline bool CARR_array_ensure_capacity(void** handle, size_t alignment, size_t size,
                                               size_t new_capacity, bool force) {
     void* data = *handle;
-    if (new_capacity > (data == NULL ? 0 : CARR_ARRAY_T(data)->capacity)) {
+    if (data == NULL) abort();
+    if (new_capacity > CARR_ARRAY_T(data)->capacity) {
         return CARR_handle_alloc(CARR_array_realloc(handle, alignment, size, new_capacity), force);
     }
     return true;
 }
 
-static inline bool CARR_array_resize(void** handle, size_t alignment, size_t size, size_t new_size, bool force) {
+static inline bool CARR_array_resize(void** handle, size_t size, size_t new_size, bool force) {
+    void* data = *handle;
+    if (data == NULL) abort();
+    size_t alignment = CARR_ARRAY_T(*handle)->element_alignment;
     if (CARR_array_ensure_capacity(handle, alignment, size, new_size, force)) {
-        void* data = *handle;
-        if (data != NULL) CARR_ARRAY_T(data)->size = new_size;
+        CARR_ARRAY_T(data)->size = new_size;
         return true;
     }
     return false;
 }
 
-static inline void CARR_array_push_back(void** handle, size_t alignment, size_t size) {
+static inline void CARR_array_push_back(void** handle, size_t size) {
     void* data = *handle;
+    size_t alignment = CARR_ARRAY_T(data)->element_alignment;
     if (data == NULL || CARR_ARRAY_T(data)->size >= CARR_ARRAY_T(data)->capacity) {
         size_t new_capacity = data == NULL ? ARRAY_DEFAULT_CAPACITY : ARRAY_CAPACITY_GROW(CARR_ARRAY_T(data)->size);
         if (!CARR_handle_alloc(CARR_array_realloc(handle, alignment, size, new_capacity), true)) return;
@@ -152,7 +157,7 @@ static inline void CARR_array_push_back(void** handle, size_t alignment, size_t 
  * @return true if the operation succeeded
  */
 #define ARRAY_TRY_ENSURE_CAPACITY(P, CAPACITY) \
-    CARR_array_ensure_capacity((void**)&(P), alignof(*(P)), sizeof(*(P)), (CAPACITY), false)
+    CARR_array_ensure_capacity((void**)&(P), CARR_ARRAY_T(P)->element_alignment, sizeof(*(P)), (CAPACITY), false)
 
 /**
  * Ensure array capacity. Array is implicitly initialized when necessary.
@@ -161,7 +166,7 @@ static inline void CARR_array_push_back(void** handle, size_t alignment, size_t 
  * @param CAPACITY required capacity of the array
  */
 #define ARRAY_ENSURE_CAPACITY(P, CAPACITY) \
-    ((void)CARR_array_ensure_capacity((void**)&(P), alignof(*(P)), sizeof(*(P)), (CAPACITY), true))
+    ((void)CARR_array_ensure_capacity((void**)&(P), CARR_ARRAY_T(P)->element_alignment, sizeof(*(P)), (CAPACITY), true))
 
 /**
  * Shrink capacity of the array to its size.
@@ -170,7 +175,7 @@ static inline void CARR_array_push_back(void** handle, size_t alignment, size_t 
  * @return the array
  * @return true if the operation succeeded
  */
-#define ARRAY_SHRINK_TO_FIT(P) CARR_array_realloc((void**)&(P), alignof(*(P)), sizeof(*(P)), ARRAY_SIZE(P))
+#define ARRAY_SHRINK_TO_FIT(P) CARR_array_realloc((void**)&(P), CARR_ARRAY_T(P)->element_alignment, sizeof(*(P)), ARRAY_SIZE(P))
 
 /**
  * Resize an array. Array is implicitly initialized when necessary.
@@ -180,7 +185,7 @@ static inline void CARR_array_push_back(void** handle, size_t alignment, size_t 
  * @return true if the operation succeeded
  */
 #define ARRAY_TRY_RESIZE(P, SIZE) \
-    CARR_array_resize((void**)&(P), alignof(*(P)), sizeof(*(P)), (SIZE), false)
+    CARR_array_resize((void**)&(P), CARR_ARRAY_T(P)->element_alignment, (SIZE), false)
 
 /**
  * Resize an array. Array is implicitly initialized when necessary.
@@ -189,7 +194,7 @@ static inline void CARR_array_push_back(void** handle, size_t alignment, size_t 
  * @param SIZE required size of the array
  */
 #define ARRAY_RESIZE(P, SIZE) \
-    ((void)CARR_array_resize((void**)&(P), alignof(*(P)), sizeof(*(P)), (SIZE), true))
+    ((void)CARR_array_resize((void**)&(P), CARR_ARRAY_T(P)->element_alignment, (SIZE), true))
 
 /**
  * Add element to the end of the array. Array is implicitly initialized when necessary.
@@ -198,7 +203,7 @@ static inline void CARR_array_push_back(void** handle, size_t alignment, size_t 
  * @return dereferenced pointer to the inserted element
  */
 #define ARRAY_PUSH_BACK(P) \
-    (*(CARR_array_push_back((void**)&(P), alignof(*(P)), sizeof(*(P))), (P) + ARRAY_SIZE(P) - 1))
+    (*(CARR_array_push_back((void**)&(P), sizeof(*(P))), (P) + ARRAY_SIZE(P) - 1))
 
 /**
  * Compile-time length of the static array.
