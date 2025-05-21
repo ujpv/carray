@@ -5,11 +5,7 @@
 int main() {
     printf("Running ring buffer tests...\n");
 
-    RING_BUFFER(int) buffer = NULL;
-
-    // === Test RING_BUFFER_SIZE & RING_BUFFER_CAPACITY ===
-    assert(RING_BUFFER_SIZE(buffer) == 0);
-    assert(RING_BUFFER_CAPACITY(buffer) == 0);
+    RING_BUFFER(int) buffer = RING_BUFFER_INIT(int);
 
     // === Test RING_BUFFER_TRY_ENSURE_CAN_PUSH & RING_BUFFER_ENSURE_CAN_PUSH ===
     bool success = RING_BUFFER_TRY_ENSURE_CAN_PUSH(buffer);

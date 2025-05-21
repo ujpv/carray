@@ -259,6 +259,16 @@ static inline size_t CARR_ring_buffer_push_back(void* data) {
  */
 #define RING_BUFFER(TYPE) struct { TYPE CARR_elem; }*
 
+inline void* CARR_ring_buffer_init(size_t size, size_t alignment) {
+    void* ptr = NULL;
+    if (!CARR_ring_buffer_ensure_can_push((void**)&(ptr), alignment, size, false)) {
+        abort();
+    }
+    return ptr;
+}
+
+#define RING_BUFFER_INIT(TYPE) CARR_ring_buffer_init(sizeof(struct { TYPE CARR_elem; }), alignof(TYPE))
+
 /**
  * @param P ring buffer
  * @return size of the ring buffer
@@ -278,7 +288,7 @@ static inline size_t CARR_ring_buffer_push_back(void* data) {
  * @return true if the operation succeeded
  */
 #define RING_BUFFER_TRY_ENSURE_CAN_PUSH(P) CARR_RING_BUFFER_GUARD((P), \
-    CARR_ring_buffer_ensure_can_push((void**)&(P), alignof(*(P)), sizeof(*(P)), false))
+    CARR_ring_buffer_ensure_can_push((void**)&(P), CARR_ARRAY_T(P)->element_alignment, sizeof(*(P)), false))
 
 /**
  * Ensure enough capacity to push an element into ring buffer. Implicitly initializes when buffer is NULL.
@@ -286,7 +296,7 @@ static inline size_t CARR_ring_buffer_push_back(void* data) {
  * @param P ring buffer
  */
 #define RING_BUFFER_ENSURE_CAN_PUSH(P) CARR_RING_BUFFER_GUARD((P), \
-    (void)CARR_ring_buffer_ensure_can_push((void**)&(P), alignof(*(P)), sizeof(*(P)), true))
+    (void)CARR_ring_buffer_ensure_can_push((void**)&(P), CARR_ARRAY_T(P)->element_alignment, sizeof(*(P)), true))
 
 /**
  * Add element to the beginning of the ring buffer. Implicitly initializes when buffer is NULL.
@@ -342,7 +352,7 @@ static inline size_t CARR_ring_buffer_push_back(void* data) {
  * @param P ring buffer
  */
 #define RING_BUFFER_FREE(P) CARR_RING_BUFFER_GUARD((P), \
-    (void)CARR_ring_buffer_realloc((void**)&(P), alignof(*(P)), sizeof(*(P)), 0))
+    (void)CARR_ring_buffer_realloc((void**)&(P), CARR_ARRAY_T(P)->element_alignment, sizeof(*(P)), 0))
 
 // === Maps ===
 
