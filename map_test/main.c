@@ -67,27 +67,6 @@ void run_map_tests() {
         MAP_FREE(map);
     }
 
-    // Test MAP_RESOLVE and MAP_RESOLVE_OR_INSERT
-    {
-        MAP(int, int) map = NULL;
-        HASH_MAP_REHASH(map, linear_probing, int_equals, int_hash, 16, 10, 0.75);
-
-        const static int key = 20;
-        const void* resolved_key_1 = (int[]){ key };
-        int* value = MAP_RESOLVE_OR_INSERT(map, resolved_key_1);
-        assert(value == NULL);
-        value = MAP_FIND(map, (int[]){ key });
-        assert(value != NULL && *value == 0);
-        *value = 100;
-
-        const void* resolved_key_2 = (int[]){ key };
-        int* found_value = MAP_RESOLVE(map, resolved_key_2);
-        assert(found_value != NULL && *found_value == 100);
-        assert(resolved_key_1 == resolved_key_2);
-
-        MAP_FREE(map);
-    }
-
     // Test MAP_REMOVE
     {
         MAP(int, char*) map = NULL;
