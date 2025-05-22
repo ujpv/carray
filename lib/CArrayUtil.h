@@ -4,7 +4,8 @@
 
 #include <stdalign.h>
 #include <stdbool.h>
-#include <stdint.h>
+
+#include "uthash.h"
 
 // C_ARRAY_UTIL_ALLOCATION_FAILED is called when allocation fails.
 // Default implementation calls abort().
@@ -385,10 +386,12 @@ bool CARR_hash_map_linear_probing_rehash(CARR_MAP_LAYOUT_ARGS, void** handle, CA
  * @param KEY_TYPE type of the map key.
  * @param VALUE_TYPE type of the map value.
  */
-#define MAP(KEY_TYPE, VALUE_TYPE) union {                                \
-    struct { char CARR_dummy; const KEY_TYPE CARR_key[]; } CARR_keys[1]; \
-    struct { char CARR_dummy; VALUE_TYPE CARR_value[]; } CARR_values[1]; \
-}*
+#define MAP(KEY_TYPE, VALUE_TYPE) \
+    struct { \
+        KEY_TYPE key; \
+        VALUE_TYPE value; \
+        UT_hash_handle hh; \
+    } *
 
 /**
  * Rehash a hash map with given strategy. It will be initialized if NULL.
@@ -405,8 +408,7 @@ bool CARR_hash_map_linear_probing_rehash(CARR_MAP_LAYOUT_ARGS, void** handle, CA
  * @param STRATEGY strategy to use
  * @param ... parameters for the rehash strategy
  */
-#define HASH_MAP_REHASH(P, STRATEGY, ...) \
-    ((void)CARR_handle_alloc(CARR_hash_map_##STRATEGY##_rehash(CARR_MAP_LAYOUT(P), (void**)&(P), __VA_ARGS__), true))
+#define HASH_MAP_REHASH(P, STRATEGY, ...)
 
 /**
  * Rehash a hash map with given strategy. It will be initialized if NULL.
@@ -416,8 +418,7 @@ bool CARR_hash_map_linear_probing_rehash(CARR_MAP_LAYOUT_ARGS, void** handle, CA
  * @param STRATEGY strategy to use
  * @return true if the operation succeeded
  */
-#define HASH_MAP_TRY_REHASH(P, STRATEGY, ...) \
-    (CARR_hash_map_##STRATEGY##_rehash(CARR_MAP_LAYOUT(P), (void**)&(P), __VA_ARGS__))
+#define HASH_MAP_TRY_REHASH(P, STRATEGY, ...) (true)
 
 /**
  * Find the next resolved key present in the map, or NULL.
@@ -427,7 +428,10 @@ bool CARR_hash_map_linear_probing_rehash(CARR_MAP_LAYOUT_ARGS, void** handle, CA
  * @return pointer to the next resolved key
  */
 #define MAP_NEXT_KEY(P, KEY_PTR) \
-    CARR_MAP_KEY_PTR((P), CARR_MAP_DISPATCH((P), next_key, (P), CARR_MAP_KEY_GUARD((P), (KEY_PTR))))
+    ({ \
+        typeof(KEY_PTR) _key_ptr = (KEY_PTR); \
+        _key_ptr == NULL ? (P) : ((typeof(P))(((typeof(P))(_key_ptr))->hh.next)); \
+    })
 
 /**
  * Find a value for the provided key.
@@ -435,8 +439,12 @@ bool CARR_hash_map_linear_probing_rehash(CARR_MAP_LAYOUT_ARGS, void** handle, CA
  * @param ... key to find, can be a compound literal, like (int){0}
  * @return pointer to the found value, or NULL
  */
-#define MAP_FIND(P, ...) \
-    CARR_MAP_VALUE_PTR((P), CARR_MAP_DISPATCH((P), find, (P), CARR_MAP_KEY_GUARD((P), &(__VA_ARGS__)), NULL, false))
+#define MAP_FIND(P, KEY) \
+    ({ \
+        typeof((P)) _entry = NULL; \
+        HASH_FIND(hh, (P), &(KEY), sizeof((KEY)), _entry); \
+        (_entry ? &(_entry->value) : NULL); \
+    })
 
 /**
  * Find a value for the provided key, or insert a new one.
@@ -446,30 +454,21 @@ bool CARR_hash_map_linear_probing_rehash(CARR_MAP_LAYOUT_ARGS, void** handle, CA
  * @param ... key to find, can be a compound literal, like (int){0}
  * @return dereferenced pointer to the found value
  */
-#define MAP_AT(P, ...) (*(MAP_ENSURE_EXTRA_CAPACITY((P), 1), \
-    CARR_MAP_VALUE_PTR((P), CARR_MAP_DISPATCH((P), find, (P), CARR_MAP_KEY_GUARD((P), &(__VA_ARGS__)), NULL, true))))
-
-/**
- * Resolve provided key and find corresponding value.
- * Using resolved key addresses speeds up subsequent map operations.
- * @param P map
- * @param KEY_PTR pointer to the key to find, replaced with resolved key address, or NULL
- * @return pointer to the found value, or NULL
- */
-#define MAP_RESOLVE(P, KEY_PTR) CARR_MAP_VALUE_PTR((P), \
-    CARR_MAP_DISPATCH((P), find, (P), CARR_MAP_KEY_GUARD((P), (KEY_PTR)), (const void**) &(KEY_PTR), false))
-
-/**
- * Resolve provided key and find corresponding value, or insert a new one.
- * Using resolved key addresses speeds up subsequent map operations.
- * Returned value pointer may be NULL, indicating that the entry was just inserted, use MAP_FIND or MAP_AT to access it.
- * On allocation failure, map is left unchanged.
- * @param P map
- * @param KEY_PTR pointer to the key to find, replaced with resolved key address
- * @return pointer to the found value, or NULL
- */
-#define MAP_RESOLVE_OR_INSERT(P, KEY_PTR) (MAP_TRY_ENSURE_EXTRA_CAPACITY((P), 1), CARR_MAP_VALUE_PTR((P), \
-    CARR_MAP_DISPATCH((P), find, (P), CARR_MAP_KEY_GUARD((P), (KEY_PTR)), (const void**) &(KEY_PTR), true)))
+#define MAP_AT(P, KEY) \
+    (*({ \
+        typeof((P)) _entry = NULL; \
+        HASH_FIND(hh, (P), &(KEY), sizeof(KEY), _entry); \
+        if (!_entry) { \
+            _entry = calloc(1, sizeof(*_entry)); \
+        if (!_entry) { \
+            fprintf(stderr, "Out of memory\n"); \
+            abort(); \
+        } \
+        _entry->key = (KEY); \
+        HASH_ADD(hh, (P), key, sizeof(KEY), _entry); \
+        } \
+        &_entry->value; \
+    }))
 
 /**
  * Remove the provided key, if one exists.
@@ -477,7 +476,19 @@ bool CARR_hash_map_linear_probing_rehash(CARR_MAP_LAYOUT_ARGS, void** handle, CA
  * @param ... key to remove, can be a compound literal, like (int){0}
  * @return true if the key was removed
  */
-#define MAP_REMOVE(P, ...) CARR_MAP_DISPATCH((P), remove, (P), CARR_MAP_KEY_GUARD((P), &(__VA_ARGS__)))
+#define MAP_REMOVE(P, KEY) \
+    ({ \
+        bool _result = false; \
+        typeof((P)) _entry = NULL; \
+        HASH_FIND(hh, (P), &(KEY), sizeof(KEY), _entry); \
+        if (_entry) { \
+            HASH_DEL((P), _entry); \
+            free(_entry); \
+            _result = true; \
+        } \
+        _result; \
+    })
+
 
 /**
  * Ensure that map has enough capacity to insert COUNT more items without reallocation.
@@ -485,7 +496,7 @@ bool CARR_hash_map_linear_probing_rehash(CARR_MAP_LAYOUT_ARGS, void** handle, CA
  * @param P map
  * @param COUNT number of new items
  */
-#define MAP_ENSURE_EXTRA_CAPACITY(P, COUNT) ((void)CARR_handle_alloc(MAP_TRY_ENSURE_EXTRA_CAPACITY((P), (COUNT)), true))
+#define MAP_ENSURE_EXTRA_CAPACITY(P, COUNT)
 
 /**
  * Ensure that map has enough capacity to insert COUNT more items without reallocation.
@@ -494,18 +505,31 @@ bool CARR_hash_map_linear_probing_rehash(CARR_MAP_LAYOUT_ARGS, void** handle, CA
  * @param COUNT number of new items
  * @return true if the operation succeeded
  */
-#define MAP_TRY_ENSURE_EXTRA_CAPACITY(P, COUNT) CARR_MAP_DISPATCH((P), ensure_extra_capacity, (void**)&(P), (COUNT))
+#define MAP_TRY_ENSURE_EXTRA_CAPACITY(P, COUNT) (true)
+
 
 /**
  * Clear the map.
  * @param P map
  */
-#define MAP_CLEAR(P) CARR_MAP_DISPATCH((P), clear, (P))
+#define MAP_CLEAR(P) \
+({ \
+    typeof((P)) _entry, _tmp; \
+    HASH_ITER(hh, (P), _entry, _tmp) { \
+        HASH_DEL((P), _entry); \
+        free(_entry); \
+    } \
+})
 
 /**
  * Free the map.
  * @param P map
  */
-#define MAP_FREE(P) ((P) == NULL ? 0 : CARR_MAP_DISPATCH((P), free, (P)), (void)((P) = NULL))
+#define MAP_FREE(P) \
+do { \
+    MAP_CLEAR(P); \
+    (P) = NULL; \
+} while (0)
+
 
 #endif // C_ARRAY_UTIL_H
